@@ -67,12 +67,14 @@ export type MockExamAttempt = {
 };
 
 export type LearnerProgress = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   currentDay: number;
   completedDays: number[];
   answers: Record<string, StoredAnswer>;
   reviews: ReviewSchedule[];
   mockAttempts: MockExamAttempt[];
+  currentStreak: number;
+  bestStreak: number;
 };
 
 export type ContentManifest = {
@@ -81,4 +83,3 @@ export type ContentManifest = {
   totalDays: number;
   totalMockExams: number;
 };
-
