@@ -499,7 +499,7 @@ function App() {
           aria-live="polite"
           onClick={() => setRankUp(null)}
         >
-          <span>RANK UP</span>
+          <span>ランクアップ</span>
           <strong>{rankUp}</strong>
         </button>
       )}
@@ -575,7 +575,7 @@ function App() {
             ) : (
               <>
                 <section className="briefing">
-                  <span className="mission-label">MISSION BRIEFING</span>
+                  <span className="mission-label">今日の連絡</span>
                   <button
                     className="story-summary"
                     aria-label="先輩・佐藤からの連絡"
@@ -593,7 +593,7 @@ function App() {
                       </small>
                     </span>
                     <span className="chevron" aria-hidden="true">
-                      {storyExpanded ? "−" : "＋"}
+                      {storyExpanded ? "⌃" : "⌄"}
                     </span>
                   </button>
                   {storyExpanded && (
@@ -629,7 +629,7 @@ function App() {
                       <span className="paper-kicker">
                         {reviewing
                           ? "復習案件"
-                          : `MISSION ${lesson.day}-${questionIndex + 1}`}
+                          : `案件 ${questionIndex + 1}/${lesson.questions.length}`}
                       </span>
                       <h3>{activeQuestion.documentTitle}</h3>
                     </div>
@@ -713,7 +713,7 @@ function App() {
                         <small>迷ったときに確認</small>
                       </span>
                       <span aria-hidden="true">
-                        {takeawayExpanded ? "−" : "＋"}
+                        {takeawayExpanded ? "⌃" : "⌄"}
                       </span>
                     </button>
                     {takeawayExpanded && (

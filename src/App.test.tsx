@@ -95,14 +95,16 @@ describe("Campus Ledger app", () => {
     );
   });
 
-  it("shows the staff rank, streak, and mission labels", async () => {
+  it("shows the staff status with Japanese case labels", async () => {
     render(<App />);
 
     expect(await screen.findByText("研修職員")).toBeInTheDocument();
     expect(screen.getByText("連続正解")).toBeInTheDocument();
     expect(screen.getByText("0", { selector: ".streak-value" })).toBeInTheDocument();
-    expect(screen.getByText("MISSION BRIEFING")).toBeInTheDocument();
-    expect(screen.getByText("MISSION 1-1")).toBeInTheDocument();
+    expect(screen.getByText("今日の連絡")).toBeInTheDocument();
+    expect(screen.getAllByText("案件 1/3").length).toBeGreaterThan(0);
+    expect(screen.queryByText("MISSION BRIEFING")).not.toBeInTheDocument();
+    expect(screen.queryByText("MISSION 1-1")).not.toBeInTheDocument();
   });
 
   it("increments the streak after a correct daily answer", async () => {
@@ -179,7 +181,7 @@ describe("Campus Ledger app", () => {
     );
 
     expect(
-      await screen.findByRole("button", { name: "RANK UP 経費担当" })
+      await screen.findByRole("button", { name: "ランクアップ 経費担当" })
     ).toBeInTheDocument();
   });
 });
