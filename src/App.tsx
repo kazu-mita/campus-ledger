@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { registerSW } from "virtual:pwa-register";
 import { accountOptions, contentManifest, lessons } from "./content/lessons";
 import { getRemainingSeconds, startExam } from "./domain/exam";
+import { getStaffRank, updateStreak } from "./domain/gamification";
 import { reviewsDueOn, scheduleReview } from "./domain/review";
 import { gradeJournalEntry, type GradeResult } from "./domain/scoring";
 import type {
@@ -100,6 +101,7 @@ function App() {
   const [reviewing, setReviewing] = useState(false);
   const [storyExpanded, setStoryExpanded] = useState(false);
   const [takeawayExpanded, setTakeawayExpanded] = useState(false);
+  const [rankUp, setRankUp] = useState<string | null>(null);
   const updateSW = useRef<
     ((reloadPage?: boolean) => Promise<void>) | undefined
   >(undefined);
@@ -174,6 +176,12 @@ function App() {
   }, [progress?.currentDay, view]);
 
   useEffect(() => {
+    if (!rankUp) return;
+    const timer = window.setTimeout(() => setRankUp(null), 2400);
+    return () => window.clearTimeout(timer);
+  }, [rankUp]);
+
+  useEffect(() => {
     if (!activeAttempt) return;
     const tick = () =>
       setRemaining(getRemainingSeconds(activeAttempt, new Date()));
@@ -221,9 +229,17 @@ function App() {
   const submitDaily = async () => {
     if (!entry || !progress) return;
     const result = gradeJournalEntry(entry, activeQuestion.answer);
-    const previousAttempts = progress.answers[activeQuestion.id]?.attempts ?? 0;
+    const previousAnswer = progress.answers[activeQuestion.id];
+    const previousAttempts = previousAnswer?.attempts ?? 0;
+    const streak = updateStreak(
+      progress.currentStreak,
+      progress.bestStreak,
+      previousAnswer?.correct ?? false,
+      result.correct
+    );
     const next: LearnerProgress = {
       ...progress,
+      ...streak,
       answers: {
         ...progress.answers,
         [activeQuestion.id]: {
@@ -263,6 +279,11 @@ function App() {
     const completedDays = Array.from(
       new Set([...progress.completedDays, lesson.day])
     ).sort((a, b) => a - b);
+    const previousRank = getStaffRank(progress.completedDays.length);
+    const nextRank = getStaffRank(completedDays.length);
+    if (previousRank.name !== nextRank.name) {
+      setRankUp(nextRank.name);
+    }
     const nextDay = Math.min(14, lesson.day + 1);
     void commit({ ...progress, completedDays, currentDay: nextDay });
     setQuestionIndex(0);
@@ -396,6 +417,7 @@ function App() {
   const answeredMock = lesson.questions.filter(
     (item) => progress.answers[item.id]
   ).length;
+  const staffRank = getStaffRank(progress.completedDays.length);
   const showExercise =
     !(
       lesson.isMockExam &&
@@ -459,7 +481,28 @@ function App() {
             <span style={{ width: `${(lesson.day / 14) * 100}%` }} />
           </div>
         </div>
+        <div className="player-status" aria-label="職員ステータス">
+          <div className="rank-status">
+            <small>職員ランク</small>
+            <strong>{staffRank.name}</strong>
+          </div>
+          <div className="streak-status">
+            <small>連続正解</small>
+            <strong className="streak-value">{progress.currentStreak}</strong>
+          </div>
+        </div>
       </header>
+
+      {rankUp && (
+        <button
+          className="rank-up-banner"
+          aria-live="polite"
+          onClick={() => setRankUp(null)}
+        >
+          <span>RANK UP</span>
+          <strong>{rankUp}</strong>
+        </button>
+      )}
 
       {needRefresh && (
         <button className="update-banner" onClick={() => updateSW.current?.(true)}>
@@ -532,6 +575,7 @@ function App() {
             ) : (
               <>
                 <section className="briefing">
+                  <span className="mission-label">MISSION BRIEFING</span>
                   <button
                     className="story-summary"
                     aria-label="先輩・佐藤からの連絡"
@@ -570,13 +614,22 @@ function App() {
                   </div>
                 )}
 
-                <section className="paper case-file">
+                <section
+                  className={`paper case-file ${
+                    feedback?.correct
+                      ? "mission-cleared"
+                      : feedback
+                        ? "mission-retry"
+                        : ""
+                  }`}
+                  data-testid="mission-card"
+                >
                   <div className="paper-top">
                     <div>
                       <span className="paper-kicker">
                         {reviewing
                           ? "復習案件"
-                          : `案件 ${questionIndex + 1}/${lesson.questions.length}`}
+                          : `MISSION ${lesson.day}-${questionIndex + 1}`}
                       </span>
                       <h3>{activeQuestion.documentTitle}</h3>
                     </div>
@@ -618,13 +671,13 @@ function App() {
                       className={`feedback ${
                         feedback.correct ? "correct" : "incorrect"
                       }`}
+                      role="status"
+                      aria-live="polite"
                     >
                       <strong>
                         {feedback.correct
-                          ? "承認されました"
-                          : attempts >= 2
-                            ? "仕訳を確認しましょう"
-                            : "もう一度考えてみましょう"}
+                          ? "案件クリア"
+                          : "再確認が必要です"}
                       </strong>
                       <p>
                         {feedback.correct
@@ -701,6 +754,11 @@ function App() {
             <p className="lead">
               完了 {progress.completedDays.length}/14日 ・ 現在 Day {progress.currentDay}
             </p>
+            <div className="career-status">
+              <span>現在の職員ランク</span>
+              <strong>{staffRank.name}</strong>
+              <small>最高連続正解 {progress.bestStreak}</small>
+            </div>
             <div className="timeline">
               {lessons.map((item) => {
                 const completed = progress.completedDays.includes(item.day);
