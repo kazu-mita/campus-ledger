@@ -1,17 +1,18 @@
 import type { LearnerProgress } from "../domain/types";
+import { migrateProgress } from "./progressMigration";
 
 type BackupEnvelope = {
   kind: "campus-ledger-backup";
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   exportedAt: string;
-  progress: LearnerProgress;
+  progress: unknown;
 };
 
 export const exportProgress = (progress: LearnerProgress) =>
   JSON.stringify(
     {
       kind: "campus-ledger-backup",
-      schemaVersion: 1,
+      schemaVersion: 2,
       exportedAt: new Date().toISOString(),
       progress
     } satisfies BackupEnvelope,
@@ -29,13 +30,15 @@ export const importProgress = (raw: string): LearnerProgress => {
 
   if (
     parsed.kind !== "campus-ledger-backup" ||
-    parsed.schemaVersion !== 1 ||
-    !parsed.progress ||
-    parsed.progress.schemaVersion !== 1
+    (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) ||
+    !parsed.progress
   ) {
     throw new Error("対応していないバックアップ形式です");
   }
 
-  return parsed.progress;
+  try {
+    return migrateProgress(parsed.progress);
+  } catch {
+    throw new Error("対応していないバックアップ形式です");
+  }
 };
-
