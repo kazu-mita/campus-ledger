@@ -51,7 +51,10 @@ function EntrySide({
 }) {
   return (
     <div className="entry-side">
-      <div className="entry-heading">{label}</div>
+      <div className="entry-heading">
+        <span>{label === "借方" ? "借方を入力" : "貸方を入力"}</span>
+        <small>{label === "借方" ? "増えた資産・費用" : "増えた負債・純資産・収益"}</small>
+      </div>
       {lines.map((line, index) => (
         <div className="entry-line" key={`${label}-${index}`}>
           <select
@@ -95,6 +98,8 @@ function App() {
   const [remaining, setRemaining] = useState(3600);
   const [notice, setNotice] = useState("");
   const [reviewing, setReviewing] = useState(false);
+  const [storyExpanded, setStoryExpanded] = useState(false);
+  const [takeawayExpanded, setTakeawayExpanded] = useState(false);
   const updateSW = useRef<
     ((reloadPage?: boolean) => Promise<void>) | undefined
   >(undefined);
@@ -162,6 +167,11 @@ function App() {
         : null
     );
   }, [activeQuestion?.id, progress?.currentDay]);
+
+  useEffect(() => {
+    setStoryExpanded(false);
+    setTakeawayExpanded(false);
+  }, [progress?.currentDay, view]);
 
   useEffect(() => {
     if (!activeAttempt) return;
@@ -386,17 +396,68 @@ function App() {
   const answeredMock = lesson.questions.filter(
     (item) => progress.answers[item.id]
   ).length;
+  const showExercise =
+    !(
+      lesson.isMockExam &&
+      ((!activeAttempt && !finishedAttempt) || finishedAttempt)
+    );
+
+  const primaryAction = showExercise ? (
+    lesson.isMockExam ? (
+      <button
+        className="primary"
+        onClick={saveMockAnswer}
+        disabled={remaining === 0}
+      >
+        {questionIndex === lesson.questions.length - 1
+          ? "模試を提出"
+          : "回答を保存して次へ"}
+      </button>
+    ) : feedback?.correct ? (
+      <button className="primary" onClick={moveNext}>
+        {reviewing
+          ? "復習を完了"
+          : questionIndex === lesson.questions.length - 1
+            ? "勤務日を完了"
+            : "次の案件へ"}
+      </button>
+    ) : (
+      <button className="primary" onClick={submitDaily}>
+        仕訳を提出
+      </button>
+    )
+  ) : null;
 
   return (
     <div className="app-shell">
       <header className="masthead">
-        <div>
-          <span className="eyebrow">私立青葉大学 法人本部</span>
-          <h1>Campus Ledger</h1>
+        <div className="brand-row">
+          <div className="brand-mark">青</div>
+          <div>
+            <span className="eyebrow">私立青葉大学 法人本部</span>
+            <h1>Campus Ledger</h1>
+          </div>
+          <div className={`network ${online ? "online" : "offline"}`}>
+            <span />
+            {online ? "オンライン" : "オフライン"}
+          </div>
         </div>
-        <div className={`network ${online ? "online" : "offline"}`}>
-          <span />
-          {online ? "オンライン" : "オフライン"}
+        <div className="course-progress">
+          <div className="progress-copy">
+            <span>Day {lesson.day} / 14</span>
+            <strong>{lesson.title}</strong>
+            <small>{lesson.subtitle}</small>
+          </div>
+          <div
+            className="progress-track"
+            role="progressbar"
+            aria-label="14日間の学習進捗"
+            aria-valuemin={0}
+            aria-valuemax={14}
+            aria-valuenow={lesson.day}
+          >
+            <span style={{ width: `${(lesson.day / 14) * 100}%` }} />
+          </div>
         </div>
       </header>
 
@@ -409,29 +470,18 @@ function App() {
       <main>
         {view === "work" && (
           <>
-            <section className="day-hero">
-              <div className="day-stamp">
-                <small>勤務</small>
-                <strong>{String(lesson.day).padStart(2, "0")}</strong>
-                <small>/ 14</small>
-              </div>
-              <div className="hero-copy">
-                <span>{lesson.department}</span>
-                <h2>{lesson.title}</h2>
-                <p>{lesson.subtitle}</p>
-              </div>
-            </section>
-
             <div className="status-row">
               <div className={`offline-card ${offlineReady ? "ready" : ""}`}>
                 <span className="status-icon">{offlineReady ? "✓" : "↓"}</span>
                 <div>
                   <strong>
                     {offlineReady
-                      ? "オフライン利用準備完了"
+                      ? "オフライン準備完了"
                       : "教材を端末に保存中"}
                   </strong>
-                  <small>教材 v{contentManifest.contentVersion}</small>
+                  {!offlineReady && (
+                    <small>教材 v{contentManifest.contentVersion}</small>
+                  )}
                   {!offlineReady && online && (
                     <button
                       className="offline-retry"
@@ -482,12 +532,33 @@ function App() {
             ) : (
               <>
                 <section className="briefing">
-                  <div className="portrait">佐</div>
-                  <div>
-                    <strong>{lesson.briefing.speaker}</strong>
-                    <small>{lesson.briefing.role}</small>
-                    <p>「{lesson.briefing.text}」</p>
-                  </div>
+                  <button
+                    className="story-summary"
+                    aria-label="先輩・佐藤からの連絡"
+                    aria-expanded={storyExpanded}
+                    aria-controls="story-detail"
+                    onClick={() => setStoryExpanded((expanded) => !expanded)}
+                  >
+                    <span className="portrait">佐</span>
+                    <span className="story-summary-copy">
+                      <strong>先輩・佐藤からの連絡</strong>
+                      <small>
+                        {storyExpanded
+                          ? "タップして閉じる"
+                          : lesson.briefing.text}
+                      </small>
+                    </span>
+                    <span className="chevron" aria-hidden="true">
+                      {storyExpanded ? "−" : "＋"}
+                    </span>
+                  </button>
+                  {storyExpanded && (
+                    <div className="story-detail" id="story-detail">
+                      <strong>{lesson.briefing.speaker}</strong>
+                      <small>{lesson.briefing.role}</small>
+                      <p>「{lesson.briefing.text}」</p>
+                    </div>
+                  )}
                 </section>
 
                 {lesson.isMockExam && (
@@ -511,7 +582,18 @@ function App() {
                     </div>
                     <span className="points">{activeQuestion.points}点</span>
                   </div>
-                  <div className="document-meta">{activeQuestion.documentMeta}</div>
+                  <div className="case-progress" aria-hidden="true">
+                    {lesson.questions.map((question, index) => (
+                      <span
+                        key={question.id}
+                        className={index <= questionIndex ? "active" : ""}
+                      />
+                    ))}
+                  </div>
+                  <div className="document-meta">
+                    <span>{activeQuestion.documentMeta}</span>
+                    <span>{lesson.department}</span>
+                  </div>
                   <p className="prompt">{activeQuestion.prompt}</p>
 
                   <div className="journal">
@@ -522,7 +604,6 @@ function App() {
                         changeEntry("debit", index, field, value)
                       }
                     />
-                    <div className="journal-divider" />
                     <EntrySide
                       label="貸方"
                       lines={entry.credit}
@@ -557,42 +638,56 @@ function App() {
                       )}
                     </div>
                   )}
-
-                  {lesson.isMockExam ? (
-                    <button
-                      className="primary"
-                      onClick={saveMockAnswer}
-                      disabled={remaining === 0}
-                    >
-                      {questionIndex === lesson.questions.length - 1
-                        ? "模試を提出"
-                        : "回答を保存して次へ"}
-                    </button>
-                  ) : feedback?.correct ? (
-                    <button className="primary" onClick={moveNext}>
-                      {reviewing
-                        ? "復習を完了"
-                        : questionIndex === lesson.questions.length - 1
-                          ? "勤務日を完了"
-                          : "次の案件へ"}
-                    </button>
-                  ) : (
-                    <button className="primary" onClick={submitDaily}>
-                      仕訳を提出
-                    </button>
-                  )}
                 </section>
 
                 {!lesson.isMockExam && (
                   <aside className="today-note">
-                    <span>今日の要点</span>
-                    <p>{lesson.takeaway}</p>
-                    <div className="topic-list">
-                      {lesson.topics.map((topic) => (
-                        <em key={topic}>{topic}</em>
-                      ))}
-                    </div>
+                    <button
+                      className="takeaway-toggle"
+                      aria-expanded={takeawayExpanded}
+                      aria-controls="takeaway-detail"
+                      aria-label={
+                        takeawayExpanded
+                          ? "今日の要点を閉じる"
+                          : "今日の要点を表示"
+                      }
+                      onClick={() =>
+                        setTakeawayExpanded((expanded) => !expanded)
+                      }
+                    >
+                      <span>
+                        <strong>今日の要点</strong>
+                        <small>迷ったときに確認</small>
+                      </span>
+                      <span aria-hidden="true">
+                        {takeawayExpanded ? "−" : "＋"}
+                      </span>
+                    </button>
+                    {takeawayExpanded && (
+                      <div className="takeaway-detail" id="takeaway-detail">
+                        <p>{lesson.takeaway}</p>
+                        <div className="topic-list">
+                          {lesson.topics.map((topic) => (
+                            <em key={topic}>{topic}</em>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </aside>
+                )}
+
+                {primaryAction && (
+                  <div className="sticky-action" data-testid="sticky-action">
+                    <div className="sticky-action-copy">
+                      <span>
+                        {reviewing
+                          ? "復習中"
+                          : `案件 ${questionIndex + 1}/${lesson.questions.length}`}
+                      </span>
+                      <small>入力内容は端末へ自動保存されます</small>
+                    </div>
+                    {primaryAction}
+                  </div>
                 )}
               </>
             )}

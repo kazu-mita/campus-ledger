@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { clearProgress } from "./storage/progressStore";
@@ -33,5 +33,60 @@ describe("Campus Ledger app", () => {
     });
     expect(screen.getByRole("button", { name: "仕訳を提出" })).toBeEnabled();
   });
-});
 
+  it("keeps the story compact until the learner expands it", async () => {
+    render(<App />);
+
+    const storyToggle = await screen.findByRole("button", {
+      name: "先輩・佐藤からの連絡"
+    });
+    expect(storyToggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByText("経理部の先輩", { exact: true })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(storyToggle);
+
+    expect(storyToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("経理部の先輩")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "「入職初日です。まずは、大学書店の現金売上を帳簿に残すところから始めましょう。」"
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("reveals today's takeaway on demand", async () => {
+    render(<App />);
+
+    const takeawayToggle = await screen.findByRole("button", {
+      name: "今日の要点を表示"
+    });
+    expect(takeawayToggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByText(
+        "資産と費用の増加は借方、負債・純資産・収益の増加は貸方です。"
+      )
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(takeawayToggle);
+
+    expect(takeawayToggle).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByText(
+        "資産と費用の増加は借方、負債・純資産・収益の増加は貸方です。"
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("uses stacked journal sections and a sticky primary action", async () => {
+    render(<App />);
+
+    expect(await screen.findByText("借方を入力")).toBeInTheDocument();
+    expect(screen.getByText("貸方を入力")).toBeInTheDocument();
+    const stickyAction = screen.getByTestId("sticky-action");
+    expect(stickyAction).toContainElement(
+      screen.getByRole("button", { name: "仕訳を提出" })
+    );
+  });
+});
